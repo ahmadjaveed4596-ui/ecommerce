@@ -1,0 +1,12 @@
+# Netlify configuration to handle SPA routing and proxy backend API calls safely
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://ais-dev-axw5gk6dmficspzq3zytft-768351843722.asia-southeast1.run.app/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
