@@ -16,12 +16,37 @@ export const UserDashboardView: React.FC = () => {
     user,
     loginUser,
     registerUser,
-    logoutUser
+    logoutUser,
+    updateProfile
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'wishlist' | 'cart'>('overview');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [userToast, setUserToast] = useState<string | null>(null);
+
+  // Guest custom profile state hooks
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profileCity, setProfileCity] = useState('');
+  const [profileZip, setProfileZip] = useState('');
+  const [profileCountry, setProfileCountry] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
+
+  // Sync profile state with loaded guest user context
+  React.useEffect(() => {
+    if (user) {
+      setProfileName(user.name !== "Guest Customer" ? user.name : "");
+      setProfileEmail(!user.email.startsWith("guest_cust-") && !user.email.startsWith("guest_cust_") && !user.email.startsWith("guest_c") ? user.email : "");
+      setProfilePhone(user.phone || '');
+      setProfileAddress(user.address || '');
+      setProfileCity(user.city || '');
+      setProfileZip(user.zip || '');
+      setProfileCountry(user.country || '');
+    }
+  }, [user]);
 
   // Authenticated signin forms state
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -422,6 +447,124 @@ export const UserDashboardView: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {/* SAVED PROFILE DETAILS FORM (GUEST CUSTOMER SHIPPING DETAILS) */}
+              <div className="border border-brand-neutral rounded-2xl p-6 bg-brand-white text-left space-y-4">
+                <div className="flex items-center gap-2 border-b border-brand-neutral pb-3">
+                  <User className="w-5 h-5 text-brand-orange shrink-0" />
+                  <div>
+                    <h3 className="font-bold text-brand-dark text-sm uppercase">Manage Profile & Sizing Coordinates</h3>
+                    <p className="text-[11px] text-brand-dark/45 font-sans">These credentials will automatically auto-populate during express checkout checkout.</p>
+                  </div>
+                </div>
+
+                {profileSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-105 text-emerald-700 text-xs font-bold rounded-xl flex items-center gap-1.5 font-sans">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{profileSuccessMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  setIsUpdatingProfile(true);
+                  setProfileSuccessMsg(null);
+                  const ok = await updateProfile({
+                    name: profileName,
+                    email: profileEmail,
+                    phone: profilePhone,
+                    address: profileAddress,
+                    city: profileCity,
+                    zip: profileZip,
+                    country: profileCountry
+                  } as any);
+                  if (ok) {
+                    setProfileSuccessMsg("Styling coordinates and default delivery destination saved securely.");
+                    setTimeout(() => setProfileSuccessMsg(null), 4000);
+                  }
+                  setIsUpdatingProfile(false);
+                }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Full Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="Charlotte Vane" 
+                      value={profileName} 
+                      onChange={(e) => setProfileName(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="charlotte@aura-luxury.com" 
+                      value={profileEmail} 
+                      onChange={(e) => setProfileEmail(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Phone Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="+45 92 83 74 65" 
+                      value={profilePhone} 
+                      onChange={(e) => setProfilePhone(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Street Address</label>
+                    <input 
+                      type="text" 
+                      placeholder="144 Copenhagen Avenue" 
+                      value={profileAddress} 
+                      onChange={(e) => setProfileAddress(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">City</label>
+                    <input 
+                      type="text" 
+                      placeholder="Copenhagen" 
+                      value={profileCity} 
+                      onChange={(e) => setProfileCity(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Postal Code / ZIP</label>
+                    <input 
+                      type="text" 
+                      placeholder="1050" 
+                      value={profileZip} 
+                      onChange={(e) => setProfileZip(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[10px] uppercase font-black tracking-widest text-brand-dark/60 block font-sans">Country</label>
+                    <input 
+                      type="text" 
+                      placeholder="Denmark" 
+                      value={profileCountry} 
+                      onChange={(e) => setProfileCountry(e.target.value)} 
+                      className="w-full px-3.5 py-2 border border-brand-neutral rounded-xl text-xs bg-brand-neutral/10 text-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 pt-2 text-right">
+                    <button 
+                      type="submit" 
+                      disabled={isUpdatingProfile}
+                      className="px-5 py-2.5 bg-brand-dark hover:bg-brand-orange text-brand-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                    >
+                      {isUpdatingProfile ? "Saving Destination..." : "Save Coordinates"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}          {/* TAB 2: PURCHASE HISTORY (MY ORDERS) */}
           {activeTab === 'orders' && (

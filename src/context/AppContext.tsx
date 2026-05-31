@@ -32,11 +32,12 @@ interface AppContextType {
   setSearchQuery: (query: string) => void;
 
   // Customer properties
-  user: { id: string; email: string; name: string } | null;
+  user: { id: string; email: string; name: string; phone?: string; address?: string } | null;
   userToken: string | null;
   loginUser: (email: string, password: string) => Promise<boolean>;
   registerUser: (name: string, email: string, password: string) => Promise<boolean>;
   logoutUser: () => void;
+  updateProfile: (profile: { name: string; email: string; phone: string; address: string }) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -68,9 +69,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Customer credentials status
-  const [user, setUser] = useState<{ id: string; email: string; name: string; wishlist?: string[]; cart?: any[] } | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; name: string; phone?: string; address?: string; wishlist?: string[]; cart?: any[] } | null>(null);
   const [userToken, setUserToken] = useState<string | null>(() => {
-    return localStorage.getItem('aura_user_token');
+    let saved = localStorage.getItem('aura_user_token');
+    if (!saved || !saved.startsWith('CUST-')) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let randomId = 'CUST-';
+      for (let i = 0; i < 8; i++) {
+        randomId += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      localStorage.setItem('aura_user_token', randomId);
+      saved = randomId;
+    }
+    return saved;
   });
 
   // A1. Sync state to local storage on changes (cart, wishlist, and tax rate)
@@ -592,11 +603,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logoutUser = () => {
     localStorage.removeItem('aura_user_token');
-    setUserToken(null);
-    setUser(null);
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let randomId = 'CUST-';
+    for (let i = 0; i < 8; i++) {
+      randomId += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    localStorage.setItem('aura_user_token', randomId);
+    setUserToken(randomId);
     setWishlist([]);
     setOrders([]);
     setCart([]);
+  };
+
+  const updateProfile = async (profile: { name: string; email: string; phone: string; address: string }): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userToken}`
+        },
+        body: JSON.stringify(profile)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Context customer profile update failure", e);
+      return false;
+    }
   };
 
   return (
@@ -634,6 +672,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginUser,
         registerUser,
         logoutUser,
+        updateProfile,
       }}
     >
       {children}

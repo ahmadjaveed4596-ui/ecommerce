@@ -113,6 +113,30 @@ async function startServer() {
         ALTER TABLE aura_orders ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
       `);
 
+      await pool.query(`
+        ALTER TABLE aura_users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+      `).catch((err: any) => console.warn("Failed phone column addition:", err));
+
+      await pool.query(`
+        ALTER TABLE aura_users ADD COLUMN IF NOT EXISTS address TEXT;
+      `).catch((err: any) => console.warn("Failed address column addition:", err));
+
+      await pool.query(`
+        ALTER TABLE aura_users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+      `).catch((err: any) => console.warn("Failed city column addition:", err));
+
+      await pool.query(`
+        ALTER TABLE aura_users ADD COLUMN IF NOT EXISTS zip VARCHAR(50);
+      `).catch((err: any) => console.warn("Failed zip column addition:", err));
+
+      await pool.query(`
+        ALTER TABLE aura_users ADD COLUMN IF NOT EXISTS country VARCHAR(100);
+      `).catch((err: any) => console.warn("Failed country column addition:", err));
+
+      await pool.query(`
+        ALTER TABLE aura_users ALTER COLUMN password DROP NOT NULL;
+      `).catch((err: any) => console.warn("Failed password column nullable:", err));
+
       // -------------------------------------------------------------
       // ROW LEVEL SECURITY (RLS) HARDENING MIGRATIONS
       // -------------------------------------------------------------
@@ -650,11 +674,15 @@ async function startServer() {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
-      try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "aura_secret_key_2026_xyz123");
-        userId = decoded.userId || null;
-      } catch (err) {
-        // Log trace and ignore for guest purchases
+      if (token && token.startsWith("CUST-")) {
+        userId = token;
+      } else {
+        try {
+          const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "aura_secret_key_2026_xyz123");
+          userId = decoded.userId || null;
+        } catch (err) {
+          // Log trace and ignore for guest purchases
+        }
       }
     }
 
@@ -736,6 +764,10 @@ async function startServer() {
       return res.status(401).json({ error: "Sign-in required to continue." });
     }
     const token = authHeader.split(" ")[1];
+    if (token && token.startsWith("CUST-")) {
+      req.user = { userId: token, isGuest: true };
+      return next();
+    }
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || "aura_secret_key_2026_xyz123");
       req.user = decoded;
@@ -889,9 +921,17 @@ async function startServer() {
     const userId = req.user.userId;
     try {
       if (usePostgres && pool) {
-        const result = await pool.query("SELECT * FROM aura_users WHERE id = $1", [userId]);
+        let result = await pool.query("SELECT * FROM aura_users WHERE id = $1", [userId]);
         if (result.rows.length === 0) {
-          return res.status(404).json({ error: "Session profile matching ID not found." });
+          if (userId && userId.startsWith("CUST-")) {
+            await pool.query(
+              "INSERT INTO aura_users (id, email, password, name, phone, address, city, zip, country, wishlist, cart) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+              [userId, `guest_${userId.toLowerCase()}@aura.com`, "guest_nopassword", "Guest Customer", "", "", "", "", "", "[]", "[]"]
+            );
+            result = await pool.query("SELECT * FROM aura_users WHERE id = $1", [userId]);
+          } else {
+            return res.status(404).json({ error: "Session profile matching ID not found." });
+          }
         }
         const userRow = result.rows[0];
         
@@ -910,20 +950,54 @@ async function startServer() {
         }
 
         return res.json({
-          user: { id: userRow.id, email: userRow.email, name: userRow.name, wishlist, cart }
+          user: { 
+            id: userRow.id, 
+            email: userRow.email, 
+            name: userRow.name, 
+            phone: userRow.phone || "",
+            address: userRow.address || "",
+            city: userRow.city || "",
+            zip: userRow.zip || "",
+            country: userRow.country || "",
+            wishlist, 
+            cart 
+          }
         });
       } else {
         const db = await readDb();
         db.users = db.users || [];
-        const userRow = db.users.find((u: any) => u.id === userId);
+        let userRow = db.users.find((u: any) => u.id === userId);
         if (!userRow) {
-          return res.status(404).json({ error: "User profile matching ID not found." });
+          if (userId && userId.startsWith("CUST-")) {
+            userRow = { 
+              id: userId, 
+              email: `guest_${userId.toLowerCase()}@aura.com`, 
+              password: "guest_nopassword", 
+              name: "Guest Customer", 
+              phone: "", 
+              address: "", 
+              city: "",
+              zip: "",
+              country: "",
+              wishlist: [], 
+              cart: [] 
+            };
+            db.users.push(userRow);
+            await writeDb(db);
+          } else {
+            return res.status(404).json({ error: "User profile matching ID not found." });
+          }
         }
         return res.json({
           user: { 
             id: userRow.id, 
             email: userRow.email, 
             name: userRow.name, 
+            phone: userRow.phone || "",
+            address: userRow.address || "",
+            city: userRow.city || "",
+            zip: userRow.zip || "",
+            country: userRow.country || "",
             wishlist: userRow.wishlist || [], 
             cart: userRow.cart || [] 
           }
@@ -932,6 +1006,38 @@ async function startServer() {
     } catch (err) {
       console.error("Fetch profile fault:", err);
       return res.status(500).json({ error: "Could not fetch user details." });
+    }
+  });
+
+  app.put("/api/auth/profile", userAuth, async (req: any, res) => {
+    const userId = req.user.userId;
+    const { name, email, phone, address, city, zip, country } = req.body;
+    try {
+      if (usePostgres && pool) {
+        await pool.query(
+          "UPDATE aura_users SET name = $1, email = $2, phone = $3, address = $4, city = $5, zip = $6, country = $7 WHERE id = $8",
+          [name || "Guest Customer", email || "", phone || "", address || "", city || "", zip || "", country || "", userId]
+        );
+        return res.json({ success: true, user: { id: userId, name, email, phone, address, city, zip, country } });
+      } else {
+        const db = await readDb();
+        db.users = db.users || [];
+        const idx = db.users.findIndex((u: any) => u.id === userId);
+        if (idx !== -1) {
+          db.users[idx].name = name || "Guest Customer";
+          db.users[idx].email = email || "";
+          db.users[idx].phone = phone || "";
+          db.users[idx].address = address || "";
+          db.users[idx].city = city || "";
+          db.users[idx].zip = zip || "";
+          db.users[idx].country = country || "";
+          await writeDb(db);
+        }
+        return res.json({ success: true, user: { id: userId, name, email, phone, address, city, zip, country } });
+      }
+    } catch (err: any) {
+      console.error("Database user profile write fault:", err);
+      return res.status(500).json({ error: "Failed to persist profile updates." });
     }
   });
 

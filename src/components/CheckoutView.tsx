@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export const CheckoutView: React.FC = () => {
-  const { cart, taxRate, createOrder, removeFromCart, updateCartQuantity, navigate } = useApp();
+  const { cart, taxRate, createOrder, removeFromCart, updateCartQuantity, navigate, user, updateProfile } = useApp();
 
   // Multi-step phase: 1 = Cart Review, 2 = Customer Information, 3 = Payment Method
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -22,6 +22,22 @@ export const CheckoutView: React.FC = () => {
     zip: '1050',
     country: 'Denmark',
   });
+
+  // Auto-populate when guest customer is loaded 
+  React.useEffect(() => {
+    if (user) {
+      setAddress(prev => ({
+        ...prev,
+        name: user.name && user.name !== "Guest Customer" ? user.name : prev.name,
+        email: user.email && !user.email.startsWith("guest_cust-") && !user.email.startsWith("guest_cust_") && !user.email.startsWith("guest_c") ? user.email : prev.email,
+        phone: user.phone || prev.phone,
+        address: user.address || prev.address,
+        city: user.city || prev.city,
+        zip: user.zip || prev.zip,
+        country: user.country || prev.country
+      }));
+    }
+  }, [user]);
 
   // Credit Card Field States
   const [cardNumber, setCardNumber] = useState('4111 2222 3333 4444');
@@ -161,6 +177,17 @@ export const CheckoutView: React.FC = () => {
 
     const modeText = paymentOption === 'card' ? 'Credit Card' : 'Cash on Delivery';
     const order = createOrder(address, modeText);
+
+    // Save info automatically to guest profile
+    updateProfile({
+      name: address.name,
+      email: address.email,
+      phone: address.phone,
+      address: address.address,
+      city: address.city,
+      zip: address.zip,
+      country: address.country
+    }).catch(e => console.error("Auto profile save failed during checkout", e));
 
     // Build plain text detailed summary for Formspree / Gmail notification
     const orderItemsSummary = cart.map((item, idx) => {
