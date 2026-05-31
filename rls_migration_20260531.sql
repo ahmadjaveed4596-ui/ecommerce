@@ -54,11 +54,13 @@ DROP POLICY IF EXISTS select_products ON public.aura_products;
 DROP POLICY IF EXISTS admin_products ON public.aura_products;
 
 DROP POLICY IF EXISTS select_orders ON public.aura_orders;
+DROP POLICY IF EXISTS admin_orders ON public.aura_orders;
 DROP POLICY IF EXISTS insert_orders ON public.aura_orders;
 DROP POLICY IF EXISTS edit_orders ON public.aura_orders;
 DROP POLICY IF EXISTS delete_orders ON public.aura_orders;
 
 DROP POLICY IF EXISTS select_users ON public.aura_users;
+DROP POLICY IF EXISTS admin_users ON public.aura_users;
 DROP POLICY IF EXISTS insert_users ON public.aura_users;
 DROP POLICY IF EXISTS update_users ON public.aura_users;
 DROP POLICY IF EXISTS delete_users ON public.aura_users;
