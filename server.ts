@@ -33,6 +33,12 @@ async function startServer() {
         },
         connectionTimeoutMillis: 5000
       });
+
+      // Handle idle connection errors gracefully without crashing the Node.js runtime process
+      pool.on("error", (err: any) => {
+        console.warn("Database pool background connection error caught safely:", err.message || err);
+      });
+
       // Test current database dial activity
       await pool.query("SELECT NOW()");
       usePostgres = true;
@@ -43,6 +49,14 @@ async function startServer() {
   } catch (err) {
     console.warn("PostgreSQL initialization fallback (Falling back to local db.json):", err);
     usePostgres = false;
+    if (pool) {
+      try {
+        await pool.end();
+      } catch (endErr) {
+        // Safe to ignore in fallback setup
+      }
+      pool = null;
+    }
   }
 
   // Schema creation and initial seeding
