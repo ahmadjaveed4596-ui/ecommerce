@@ -359,10 +359,89 @@ async function startServer() {
 
     try {
       const content = await fs.readFile(DB_PATH, "utf-8");
+      if (!content || !content.trim()) {
+        throw new SyntaxError("Local database file db.json is empty.");
+      }
       return JSON.parse(content);
     } catch (e) {
-      console.error("Database connection fault. Triggering seed recovery...", e);
-      return { products: [], categories: [], orders: [] };
+      console.error("Database connection fault or db.json read error. Triggering recovery...", e);
+      // Construct robust default recovery structure with original template catalog values to prevent a blank store
+      const defaultState = {
+        products: [
+          {
+            id: "prod-1",
+            title: "Minimalist Charcoal Trench Coat",
+            description: "Elevate your seasonal wardrobe with our signature tencel-blend trench coat. Featuring a clean, unstructured profile, tailored horn buttons, a structured storm flap, and adjustable wrist straps.",
+            price: 245,
+            salePrice: 195,
+            sku: "OUT-TRN-001",
+            type: "variable",
+            categories: ["Outerwear"],
+            gender: "unisex",
+            imageUrl: "https://images.unsplash.com/photo-1544022613-e87ca75a784a?q=80&w=600&auto=format&fit=crop",
+            variations: [
+              {
+                id: "v-1-1",
+                attributes: { size: "S", color: "Charcoal" },
+                price: 245,
+                salePrice: 195,
+                sku: "OUT-TRN-001-S-CH",
+                stock: 12
+              },
+              {
+                id: "v-1-2",
+                attributes: { size: "M", color: "Charcoal" },
+                price: 245,
+                salePrice: 195,
+                sku: "OUT-TRN-001-M-CH",
+                stock: 18
+              }
+            ]
+          },
+          {
+            id: "prod-2",
+            title: "Classic Wool Designer Blazer",
+            description: "A structural masterpiece made from pure Italian virgin wool. This timeless blazer is tailored with a slight oversized silhouette.",
+            price: 280,
+            sku: "SUIT-BLZ-002",
+            type: "variable",
+            categories: ["Dresses & Suits"],
+            gender: "women",
+            imageUrl: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=600&auto=format&fit=crop",
+            variations: [
+              {
+                id: "v-2-1",
+                attributes: { size: "S", color: "Midnight Black" },
+                price: 280,
+                sku: "SUIT-BLZ-002-S-BK",
+                stock: 9
+              }
+            ]
+          }
+        ],
+        categories: [
+          {
+            id: "cat-1",
+            name: "Outerwear",
+            slug: "outerwear"
+          },
+          {
+            id: "cat-3",
+            name: "Dresses & Suits",
+            slug: "dresses-suits"
+          }
+        ],
+        orders: [],
+        users: []
+      };
+      
+      // Attempt to auto-repair db.json file with the fallback state safely
+      try {
+        await fs.writeFile(DB_PATH, JSON.stringify(defaultState, null, 2), "utf-8");
+      } catch (writeErr) {
+        console.error("Failed to repair write damaged db.json:", writeErr);
+      }
+      return defaultState;
     }
   };
 
