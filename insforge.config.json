@@ -1,0 +1,21 @@
+{
+  "projectId": "7a34f2f6-9d81-4ed3-a9f7-8a5f056214e7",
+  "projectName": "Aura Backend",
+  "linkedAt": "2026-05-25T11:45:00Z",
+  "status": "connected",
+  "environment": "production",
+  "apiBaseUrl": "https://api.insforge.com/v1",
+  "infrastructure": {
+    "engine": "Node.js Express",
+    "architecture": "REST API headless-commerce",
+    "persistence": "JSON File Storage with dynamic fallback",
+    "features": [
+      "Product Catalog management",
+      "Dynamic Categories",
+      "In-Memory & Persistent Orders",
+      "JWT Admin Authentication",
+      "Rank Math-style SEO",
+      "Real-time Analytics"
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Aura Commerce Store",
+  "description": "An elegant, highly-scalable fashion e-commerce storefront with user profiles, checkout flow, and a fully featured WooCommerce-style Admin Dashboard with built-in Gemini-powered Rank Math SEO analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
